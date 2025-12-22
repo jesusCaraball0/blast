@@ -1,5 +1,6 @@
 from django.urls import path
 from astrodash import views
+from astrodash import ui_views
 
 app_name = "astrodash"
 
@@ -20,4 +21,9 @@ urlpatterns = [
     path("models/<uuid:model_id>/update", views.update_model, name="update_model"),
     path("models/owner/<str:owner>", views.list_models_by_owner, name="models_by_owner"),
     path("batch-process", views.batch_process, name="batch_process"),
+
+    # UI Views
+    path("", ui_views.landing_page, name="landing_page"),
+    path("classify/", ui_views.classify, name="classify"),
+    path("batch/", ui_views.batch_process, name="batch_process_ui"),
 ]
