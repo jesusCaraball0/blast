@@ -2,8 +2,16 @@ from django import forms
 from django.core.validators import FileExtensionValidator
 
 class ClassifyForm(forms.Form):
+    supernova_name = forms.CharField(
+        label="Supernova Name",
+        required=False,
+        max_length=100,
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. SN1998bw'})
+    )
+
     file = forms.FileField(
         label="Upload Spectrum",
+        required=False,
         validators=[FileExtensionValidator(allowed_extensions=['txt', 'dat', 'ascii', 'csv'])],
         help_text="Upload a spectrum file (text format, two columns: wavelength and flux)"
     )
@@ -46,14 +54,19 @@ class ClassifyForm(forms.Form):
     
     redshift = forms.FloatField(
         required=False,
-        widget=forms.NumberInput(attrs={'class': 'form-control', 'step': '0.001'})
+        widget=forms.NumberInput(attrs={'class': 'form-control', 'step': 'any'})
     )
 
     def clean(self):
         cleaned_data = super().clean()
+        file = cleaned_data.get('file')
+        supernova_name = cleaned_data.get('supernova_name')
         known_z = cleaned_data.get('known_z')
         redshift = cleaned_data.get('redshift')
         model = cleaned_data.get('model')
+
+        if not file and not supernova_name:
+            raise forms.ValidationError("Please provide either a spectrum file or a Supernova Name.")
 
         if known_z and redshift is None:
             self.add_error('redshift', "Redshift is required when 'Known Redshift' is checked.")

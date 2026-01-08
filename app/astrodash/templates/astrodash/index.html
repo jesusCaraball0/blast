@@ -12,8 +12,9 @@
     <hr class="my-4">
     <p>Upload your spectra and get instant classification results using our advanced models.</p>
     <div class="d-flex justify-content-center gap-3">
-        <a class="btn btn-primary btn-lg mr-2" href="{% url 'classify' %}" role="button">Classify Spectrum</a>
-        <a class="btn btn-secondary btn-lg" href="{% url 'batch_process' %}" role="button">Batch Processing</a>
+        <a class="btn btn-primary btn-lg mr-2" href="{% url 'astrodash:classify' %}" role="button">Classify Spectrum</a>
+        <a class="btn btn-secondary btn-lg" href="{% url 'astrodash:batch_process_ui' %}" role="button">Batch
+            Processing</a>
     </div>
 </div>
 

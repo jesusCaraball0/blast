@@ -27,8 +27,9 @@ def classify(request):
     
     if request.method == 'POST':
         if form.is_valid():
-            uploaded_file = request.FILES['file']
-            
+            uploaded_file = request.FILES.get('file')
+            supernova_name = form.cleaned_data.get('supernova_name')
+
             # Prepare params for services
             params = {
                 'smoothing': form.cleaned_data['smoothing'],
@@ -46,9 +47,10 @@ def classify(request):
                 classification_service = get_classification_service()
                 
                 # 1. Read Spectrum
+                # If file is provided, use it. Otherwise use supernova_name (osc_ref)
                 spectrum = async_to_sync(spectrum_service.get_spectrum_data)(
                     file=uploaded_file, 
-                    osc_ref=None
+                    osc_ref=supernova_name
                 )
                 
                 # 2. Process Spectrum
@@ -68,8 +70,11 @@ def classify(request):
                 # 4. Generate Plot
                 plot_script, plot_div = _create_bokeh_plot(processed)
                 
+                # Workaround for template filter issue: Format in view
+                formatted_results = _format_results(classification.results)
+
                 context.update({
-                    'results': classification.results,
+                    'results': formatted_results,
                     'plot_script': plot_script,
                     'plot_div': plot_div,
                     'model_type': classification.model_type,
@@ -126,3 +131,36 @@ def _create_bokeh_plot(spectrum):
     p.border_fill_color = "#ffffff"
     
     return components(p)
+
+def _format_results(results):
+    """
+    Format results for display in the template to avoid filter issues.
+    """
+    formatted_matches = []
+    
+    # helper to get attributes from dict or object
+    def get_attr(obj, attr, default=None):
+        if isinstance(obj, dict):
+            return obj.get(attr, default)
+        return getattr(obj, attr, default)
+
+    # Check if results has best_matches
+    best_matches = get_attr(results, 'best_matches', [])
+    
+    for match in best_matches:
+        # Create a dict representation
+        match_dict = {}
+        
+        # Extract fields needed for template
+        for field in ['type', 'age', 'probability', 'redshift', 'reliable']:
+            match_dict[field] = get_attr(match, field)
+            
+        # Add formatted probability
+        if match_dict['probability'] is not None:
+             match_dict['formatted_probability'] = f"{match_dict['probability']:.4f}"
+        else:
+             match_dict['formatted_probability'] = ""
+
+        formatted_matches.append(match_dict)
+        
+    return {'best_matches': formatted_matches}
