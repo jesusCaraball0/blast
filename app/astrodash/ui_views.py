@@ -88,18 +88,102 @@ def classify(request):
                 
     return render(request, 'astrodash/classify.html', context)
 
+
+from astrodash.services import get_batch_processing_service
+
 def batch_process(request):
     """
     Handles batch processing UI.
-    Placeholder for now.
+    Support for both ZIP file uploads and multiple individual file uploads.
     """
     form = BatchForm(request.POST or None, request.FILES or None)
     context = {'form': form}
-    if request.method == 'POST' and form.is_valid():
-        # Implementation for batch processing output
-        pass 
+
+    if request.method == 'POST':
+        # Manually attach files to form for validation if needed, though form.is_valid handles request.FILES
+        # For the 'files' field which uses ClearableFileInput key 'files', we need to check request.FILES.getlist
+        files = request.FILES.getlist('files')
         
+        if form.is_valid():
+            try:
+                # Prepare params
+                params = {
+                    'smoothing': form.cleaned_data['smoothing'],
+                    'minWave': form.cleaned_data['min_wave'],
+                    'maxWave': form.cleaned_data['max_wave'],
+                    'knownZ': form.cleaned_data['known_z'],
+                    'zValue': form.cleaned_data['redshift'],
+                    'calculateRlap': form.cleaned_data['calculate_rlap'],
+                    'modelType': form.cleaned_data['model'],
+                }
+                
+                batch_service = get_batch_processing_service()
+                
+                zip_file = form.cleaned_data.get('zip_file')
+                model_type = params.pop('modelType', 'dash')
+                
+                results = {}
+                
+                files_to_process = None
+                if zip_file:
+                    files_to_process = zip_file
+                elif files:
+                    files_to_process = files
+                else:
+                    messages.error(request, "Please upload a ZIP file or select multiple files.")
+                    return render(request, 'astrodash/batch.html', context)
+                
+                results = async_to_sync(batch_service.process_batch)(
+                    files=files_to_process,
+                    params=params,
+                    model_type=model_type
+                )
+
+                # Format results for template
+                formatted_results = _format_batch_results(results, params)
+                context['results'] = formatted_results
+                context['success'] = True
+
+            except AppException as e:
+                messages.error(request, f"Batch Processing Error: {e.message}")
+            except Exception as e:
+                 messages.error(request, f"An unexpected error occurred during batch processing: {str(e)}")
+
     return render(request, 'astrodash/batch.html', context)
+
+def _format_batch_results(results, params):
+    """
+    Format batch results for display in the template.
+    """
+    formatted = {}
+    for filename, result in results.items():
+        formatted_item = {}
+        
+        # Check for error
+        if result.get('error'):
+            formatted_item['error'] = result['error']
+        else:
+            # Extract classification data
+            classification = result.get('classification', {})
+            best_match = classification.get('best_match', {})
+            
+            formatted_item['type'] = best_match.get('type', '-')
+            formatted_item['age'] = best_match.get('age', '-')
+            
+            prob = best_match.get('probability')
+            formatted_item['probability'] = f"{prob:.4f}" if prob is not None else '-'
+            
+            formatted_item['redshift'] = best_match.get('redshift', '-')
+            
+            # RLAP only for Dash model and if requested
+            if params.get('modelType') == 'dash' and params.get('calculateRlap'):
+                formatted_item['rlap'] = best_match.get('rlap', '-')
+            else:
+                 formatted_item['rlap'] = '-'
+                 
+        formatted[filename] = formatted_item
+        
+    return formatted
 
 def _create_bokeh_plot(spectrum):
     """
