@@ -77,6 +77,9 @@ class ClassifyForm(forms.Form):
         return cleaned_data
 
 
+class MultipleFileInput(forms.ClearableFileInput):
+    allow_multiple_selected = True
+
 class BatchForm(forms.Form):
     # Support for both zip and multiple files
     zip_file = forms.FileField(
@@ -89,7 +92,7 @@ class BatchForm(forms.Form):
     files = forms.FileField(
         label="Upload Multiple Files",
         required=False,
-        widget=forms.ClearableFileInput(attrs={'multiple': True}),
+        widget=MultipleFileInput(attrs={'multiple': True}),
         help_text="Select multiple spectrum files to upload."
     )
 
