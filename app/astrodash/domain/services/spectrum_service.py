@@ -23,13 +23,13 @@ class SpectrumService:
         self.settings = settings or get_settings()
 
     async def get_spectrum_from_file(self, file: Any) -> Spectrum:
-        logger.debug(f"Getting spectrum from file: {getattr(file, 'filename', 'unknown')}")
+        logger.debug(f"Getting spectrum from file: {getattr(file, 'name', getattr(file, 'filename', 'unknown'))}")
         spectrum = await asyncio.to_thread(self.file_repo.get_from_file, file)
         logger.debug(f"Repository returned spectrum: {spectrum}")
 
         if not spectrum:
             logger.error("Repository returned None spectrum")
-            raise FileReadException(getattr(file, 'filename', 'unknown'), "Invalid or unreadable spectrum file.")
+            raise FileReadException(getattr(file, 'name', getattr(file, 'filename', 'unknown')), "Invalid or unreadable spectrum file.")
 
         try:
             validate_spectrum(spectrum.x, spectrum.y, spectrum.redshift)
@@ -99,9 +99,9 @@ class SpectrumService:
         """
         try:
             if file:
-                logger.debug(f"Processing uploaded file: {getattr(file, 'filename', 'unknown')}")
+                logger.debug(f"Processing uploaded file: {getattr(file, 'name', getattr(file, 'filename', 'unknown'))}")
                 # Validate file extension (now supports .fits as well)
-                validate_file_extension(getattr(file, 'filename', ''), [".dat", ".lnw", ".txt", ".fits"])
+                validate_file_extension(getattr(file, 'name', getattr(file, 'filename', '')), [".dat", ".lnw", ".txt", ".fits"])
                 return await self.get_spectrum_from_file(file)
             elif osc_ref:
                 logger.debug(f"Processing OSC reference: {osc_ref}")
