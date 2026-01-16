@@ -23,7 +23,7 @@ class ClassifyForm(forms.Form):
     ]
     model = forms.ChoiceField(
         choices=MODEL_CHOICES, 
-        initial='dash',
+        initial='transformer',
         widget=forms.Select(attrs={'class': 'form-control'})
     )
     
