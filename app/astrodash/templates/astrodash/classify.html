@@ -47,7 +47,10 @@
                             {{ form.redshift|as_crispy_field }}
                         </div>
 
-                        <button type="submit" class="btn btn-primary btn-block mt-3">Classify</button>
+                        <div class="d-flex justify-content-between mt-3">
+                            <button type="submit" class="btn btn-primary flex-grow-1 mr-2">Classify</button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="clearForm()">Clear</button>
+                        </div>
                     </form>
                 </div>
             </div>
@@ -118,4 +121,13 @@
 </div>
 
 {{ plot_script|safe }}
+
+<script>
+    function clearForm() {
+        // Reloading the page via GET request is the cleanest way to:
+        // 1. Reset all form inputs to their factory defaults (clearing user entries like Redshift).
+        // 2. Clear the rendered plot and results (since the context will be empty).
+        window.location.href = window.location.pathname;
+    }
+</script>
 {% endblock %}
