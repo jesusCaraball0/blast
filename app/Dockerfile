@@ -4,6 +4,19 @@ RUN curl https://dl.min.io/client/mc/release/linux-amd64/mc \
     -o /usr/local/bin/mc && \
     chmod +x /usr/local/bin/mc
 
+
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    build-essential \
+    gfortran \
+    pkg-config \
+    git \
+    curl \
+    # keep these if your reqs include healpix/hdf5/netcdf wrappers
+    libhealpix-cxx-dev \
+    libhdf5-serial-dev \
+    libnetcdf-dev \
+  && rm -rf /var/lib/apt/lists/*
+
 RUN pip install --upgrade pip
 COPY ./requirements.txt /requirements.txt
 RUN pip install -r /requirements.txt --no-cache-dir
