@@ -4,13 +4,14 @@ from django.conf import settings
 from django.http import HttpResponseRedirect
 from django.urls import reverse
 
-from astrodash.forms import ClassifyForm, BatchForm
-from astrodash.services import get_spectrum_processing_service, get_classification_service, get_spectrum_service
+from astrodash.forms import ClassifyForm, BatchForm, ModelSelectionForm
+from astrodash.services import get_spectrum_processing_service, get_classification_service, get_spectrum_service, get_model_service
 from astrodash.core.exceptions import AppException
 from asgiref.sync import async_to_sync
 from bokeh.embed import components
 from bokeh.plotting import figure
 from bokeh.models import ColumnDataSource, HoverTool
+import json
 
 def landing_page(request):
     """
@@ -18,11 +19,80 @@ def landing_page(request):
     """
     return render(request, 'astrodash/index.html')
 
+def model_selection(request):
+    """
+    Handles model selection page - allows choosing between dash/transformer or uploading a custom model.
+    """
+    action_type = request.GET.get('action', 'classify')  # 'classify' or 'batch'
+    form = ModelSelectionForm(request.POST or None, request.FILES or None)
+    
+    if request.method == 'POST':
+        form = ModelSelectionForm(request.POST, request.FILES)
+        if form.is_valid():
+            model_type = form.cleaned_data.get('model_type')
+            action_type = form.cleaned_data.get('action_type') or action_type
+            
+            # Handle model upload
+            if model_type == 'upload':
+                model_file = request.FILES.get('model_file')
+                class_mapping = form.cleaned_data.get('class_mapping')
+                input_shape = form.cleaned_data.get('input_shape')
+                model_name = form.cleaned_data.get('model_name')
+                model_description = form.cleaned_data.get('model_description')
+                
+                try:
+                    model_service = get_model_service()
+                    user_model, model_info = async_to_sync(model_service.upload_model)(
+                        model_content=model_file.read(),
+                        filename=model_file.name,
+                        class_mapping_str=class_mapping,
+                        input_shape_str=input_shape,
+                        name=model_name,
+                        description=model_description,
+                        owner=request.user.username if request.user.is_authenticated else None,
+                    )
+                    
+                    # Store model ID in session for use in classify/batch views
+                    request.session['selected_model_id'] = user_model.id
+                    request.session['selected_model_type'] = 'user_uploaded'
+                    messages.success(request, f"Model '{model_name}' uploaded successfully!")
+                    
+                except AppException as e:
+                    messages.error(request, f"Model upload error: {e.message}")
+                    return render(request, 'astrodash/model_selection.html', {'form': form, 'action_type': action_type})
+                except Exception as e:
+                    messages.error(request, f"An unexpected error occurred during model upload: {str(e)}")
+                    return render(request, 'astrodash/model_selection.html', {'form': form, 'action_type': action_type})
+            else:
+                # Store selected model type in session
+                request.session['selected_model_type'] = model_type
+                request.session.pop('selected_model_id', None)  # Clear any previous user model
+            
+            # Redirect to the appropriate page
+            if action_type == 'batch':
+                return HttpResponseRedirect(reverse('astrodash:batch_process_ui'))
+            else:
+                return HttpResponseRedirect(reverse('astrodash:classify'))
+    
+    # Pre-populate action_type in form
+    form.fields['action_type'].initial = action_type
+    return render(request, 'astrodash/model_selection.html', {'form': form, 'action_type': action_type})
+
 def classify(request):
     """
     Handles spectrum classification via the UI.
     """
+    # Get model selection from session (set by model_selection view)
+    selected_model_type = request.session.get('selected_model_type')
+    selected_model_id = request.session.get('selected_model_id', None)
+    
+    # If no model selected, redirect to model selection
+    if selected_model_type is None:
+        return HttpResponseRedirect(reverse('astrodash:model_selection') + '?action=classify')
+    
     form = ClassifyForm(request.POST or None, request.FILES or None)
+    # Set the model from session
+    form.fields['model'].initial = selected_model_type if selected_model_type != 'user_uploaded' else 'transformer'
     context = {'form': form}
     
     if request.method == 'POST':
@@ -30,6 +100,11 @@ def classify(request):
             uploaded_file = request.FILES.get('file')
             supernova_name = form.cleaned_data.get('supernova_name')
 
+            # Use model from session, not form (form model field is hidden/disabled)
+            model_type = selected_model_type
+            if model_type == 'user_uploaded':
+                model_type = 'user_uploaded'
+            
             # Prepare params for services
             params = {
                 'smoothing': form.cleaned_data['smoothing'],
@@ -37,7 +112,7 @@ def classify(request):
                 'maxWave': form.cleaned_data['max_wave'],
                 'knownZ': form.cleaned_data['known_z'],
                 'zValue': form.cleaned_data['redshift'],
-                'modelType': form.cleaned_data['model'],
+                'modelType': model_type if model_type != 'user_uploaded' else 'transformer',  # Fallback for display
             }
 
             try:
@@ -62,8 +137,8 @@ def classify(request):
                 # 3. Classify
                 classification = async_to_sync(classification_service.classify_spectrum)(
                     spectrum=processed,
-                    model_type=params['modelType'],
-                    user_model_id=None,
+                    model_type=model_type,
+                    user_model_id=selected_model_id,
                     params=params,
                 )
                 
@@ -96,7 +171,17 @@ def batch_process(request):
     Handles batch processing UI.
     Support for both ZIP file uploads and multiple individual file uploads.
     """
+    # Get model selection from session (set by model_selection view)
+    selected_model_type = request.session.get('selected_model_type')
+    selected_model_id = request.session.get('selected_model_id', None)
+    
+    # If no model selected, redirect to model selection
+    if selected_model_type is None:
+        return HttpResponseRedirect(reverse('astrodash:model_selection') + '?action=batch')
+    
     form = BatchForm(request.POST or None, request.FILES or None)
+    # Set the model from session
+    form.fields['model'].initial = selected_model_type if selected_model_type != 'user_uploaded' else 'dash'
     context = {'form': form}
 
     if request.method == 'POST':
@@ -106,6 +191,11 @@ def batch_process(request):
         
         if form.is_valid():
             try:
+                # Use model from session, not form
+                model_type = selected_model_type
+                if model_type == 'user_uploaded':
+                    model_type = 'user_uploaded'
+                
                 # Prepare params
                 params = {
                     'smoothing': form.cleaned_data['smoothing'],
@@ -114,13 +204,12 @@ def batch_process(request):
                     'knownZ': form.cleaned_data['known_z'],
                     'zValue': form.cleaned_data['redshift'],
                     'calculateRlap': form.cleaned_data['calculate_rlap'],
-                    'modelType': form.cleaned_data['model'],
+                    'modelType': model_type if model_type != 'user_uploaded' else 'dash',  # Fallback for display
                 }
                 
                 batch_service = get_batch_processing_service()
                 
                 zip_file = form.cleaned_data.get('zip_file')
-                model_type = params.pop('modelType', 'dash')
                 
                 results = {}
                 
@@ -136,7 +225,8 @@ def batch_process(request):
                 results = async_to_sync(batch_service.process_batch)(
                     files=files_to_process,
                     params=params,
-                    model_type=model_type
+                    model_type=model_type,
+                    model_id=selected_model_id
                 )
 
                 # Format results for template

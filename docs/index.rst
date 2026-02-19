@@ -65,6 +65,16 @@ Code API
    API/components
 
 
+AstroDASH
+---------
+
+.. toctree::
+   :maxdepth: 2
+   :caption: AstroDASH
+
+   astrodash/index
+
+
 Acknowledgements
 ----------------
 

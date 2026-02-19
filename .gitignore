@@ -172,3 +172,8 @@ validation/validation_data/jones+18_panstarrs_g_cutouts/
 app/sbi-logs/
 
 .vscode/
+
+
+#local dash stuff
+app/astrodash_old/
+astrodash-docs/ 
