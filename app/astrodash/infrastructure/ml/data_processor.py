@@ -185,7 +185,7 @@ class DashSpectrumProcessor:
         if not np.isfinite(flux_min) or not np.isfinite(flux_max):
             raise ValidationError("Array contains non-finite values")
 
-        if np.isclose(flux_min, flux_max):
+        if flux_min == flux_max:
             logger.warning("Normalizing spectrum: constant flux array")
             return np.zeros(len(flux))
 
