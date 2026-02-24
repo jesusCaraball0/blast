@@ -94,6 +94,12 @@ class DashSpectrumProcessor:
                 filter_size = self.MIN_FILTER_SIZE
             if filter_size % 2 == 0:
                 filter_size += 1
+            
+            # Cap to array length to avoid "kernel_size exceeds volume extent" and very slow medfilt
+            n_flux = len(flux_limited)
+            if filter_size > n_flux:
+                filter_size = n_flux if n_flux % 2 == 1 else max(1, n_flux - 1)
+
             flux_smoothed = medfilt(flux_limited, kernel_size=filter_size)
 
             # 3) Derive redshifted spectrum, restrict to model range, re-normalise
@@ -217,11 +223,11 @@ class DashSpectrumProcessor:
         flux_out = np.copy(flux)
 
         if min_wave is not None and np.isfinite(min_wave):
-            min_idx = np.clip((np.abs(wave - min_wave)).argmin(), 0, len(flux_out) - 1)
+            min_idx = int((np.abs(np.asarray(wave) - min_wave)).argmin())
             flux_out[:min_idx] = 0
 
         if max_wave is not None and np.isfinite(max_wave):
-            max_idx = np.clip((np.abs(wave - max_wave)).argmin(), 0, len(flux_out) - 1)
+            max_idx = int((np.abs(np.asarray(wave) - max_wave)).argmin())
             flux_out[max_idx:] = 0
 
         return flux_out
@@ -331,7 +337,8 @@ class DashSpectrumProcessor:
 
         out = np.copy(flux)
         mean_flux = np.mean(out[min_idx:max_idx])
-        out[min_idx:max_idx] = out[min_idx:max_idx] - mean_flux
+        out[min_idx : max_idx + 1] = out[min_idx : max_idx + 1] - mean_flux
+        
         # outer regions unchanged
         return out
 

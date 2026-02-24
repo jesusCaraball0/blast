@@ -3,7 +3,26 @@
 {% load crispy_forms_tags %}
 
 {% block content %}
-<div class="container mt-5 mb-5">
+<div class="container mt-5 mb-5" style="position: relative;">
+    <a href="{% url 'astrodash:landing_page' %}"
+       aria-label="Back to main menu"
+       style="
+            position: absolute;
+            top: 8px;
+            right: 24px;
+            z-index: 10;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background-color: #e0e0e0;
+            color: #333333;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+        ">
+        &larr;
+    </a>
     <div class="row justify-content-center">
         <div class="col-lg-10">
             <!-- Header -->
