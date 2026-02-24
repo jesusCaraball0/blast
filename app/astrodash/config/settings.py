@@ -46,8 +46,8 @@ class Settings(BaseSettings):
 
     # ML Model Paths (External data directory)
     user_model_dir: str = Field("/mnt/astrodash-data/user_models", env="ASTRODASH_USER_MODEL_DIR")
-    dash_model_path: str = Field("/mnt/astrodash-data/pre_trained_models/dash/pytorch_model.pth", env="ASTRODASH_DASH_MODEL_PATH")
-    dash_training_params_path: str = Field("/mnt/astrodash-data/pre_trained_models/dash/training_params.pickle", env="ASTRODASH_DASH_TRAINING_PARAMS_PATH")
+    dash_model_path: str = Field("/mnt/astrodash-data/pre_trained_models/dash/zeroZ/pytorch_model.pth", env="ASTRODASH_DASH_MODEL_PATH")
+    dash_training_params_path: str = Field("/mnt/astrodash-data/pre_trained_models/dash/zeroZ/training_params.pickle", env="ASTRODASH_DASH_TRAINING_PARAMS_PATH")
     transformer_model_path: str = Field("/mnt/astrodash-data/pre_trained_models/transformer/TF_wiserep_v6.pt", env="ASTRODASH_TRANSFORMER_MODEL_PATH")
 
     # Template and Line List Paths (External data directory)

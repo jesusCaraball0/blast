@@ -2,7 +2,26 @@
 {% load crispy_forms_tags %}
 
 {% block content %}
-<div class="container-fluid mt-4">
+<div class="container-fluid mt-4" style="position: relative;">
+    <a href="{% url 'astrodash:landing_page' %}"
+       aria-label="Back to main menu"
+       style="
+            position: absolute;
+            top: 8px;
+            right: 24px;
+            z-index: 10;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background-color: #e0e0e0;
+            color: #333333;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+        ">
+        &larr;
+    </a>
     <div class="row">
         <!-- Sidebar: Input Form -->
         <div class="col-md-3">
@@ -109,7 +128,7 @@
                 </div>
             </div>
             {% else %}
-            <div class="alert alert-info" role="alert">
+            <div class="alert alert-info" role="alert" style="width: calc(100% - 80px);">
                 <h4 class="alert-heading">Welcome!</h4>
                 <p>Use the form on the left to upload a spectrum file and start classification.</p>
                 <hr>

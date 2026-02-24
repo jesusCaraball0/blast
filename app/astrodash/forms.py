@@ -1,5 +1,6 @@
 from django import forms
 from django.core.validators import FileExtensionValidator
+import json
 
 class ClassifyForm(forms.Form):
     supernova_name = forms.CharField(
@@ -74,6 +75,96 @@ class ClassifyForm(forms.Form):
         if model == 'transformer' and redshift is None:
              self.add_error('redshift', "Redshift is required for Transformer model.")
 
+        return cleaned_data
+
+
+class ModelSelectionForm(forms.Form):
+    """
+    Form for model selection page - allows choosing between dash/transformer or uploading a custom model.
+    """
+    model_type = forms.ChoiceField(
+        choices=[
+            ('transformer', 'Transformer Model'),
+            ('dash', 'Dash Model'),
+            ('upload', 'Upload Your Model'),
+        ],
+        widget=forms.HiddenInput(),  # We'll handle selection via JavaScript/cards
+        required=False
+    )
+    
+    # Fields for model upload
+    model_file = forms.FileField(
+        label="Model File",
+        required=False,
+        validators=[FileExtensionValidator(allowed_extensions=['pth', 'pt'])],
+        help_text="Upload a PyTorch .pth/.pt file"
+    )
+    
+    model_name = forms.CharField(
+        label="Model Name",
+        required=False,
+        max_length=200,
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter model name'})
+    )
+    
+    model_description = forms.CharField(
+        label="Description",
+        required=False,
+        widget=forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Enter model description'})
+    )
+    
+    class_mapping = forms.CharField(
+        label="Class Mapping (JSON)",
+        required=False,
+        widget=forms.Textarea(attrs={'class': 'form-control', 'rows': 4, 'placeholder': '{"Type Ia": 0, "Type II": 1, "Type Ibc": 2, ...}'})
+    )
+    
+    input_shape = forms.CharField(
+        label="Input Shape (JSON)",
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': '[1, 1, 1000]'})
+    )
+    
+    # Hidden field to track which action (classify or batch)
+    action_type = forms.CharField(
+        widget=forms.HiddenInput(),
+        required=False
+    )
+    
+    def clean(self):
+        cleaned_data = super().clean()
+        model_type = cleaned_data.get('model_type')
+        
+        if model_type == 'upload':
+            model_file = cleaned_data.get('model_file')
+            class_mapping = cleaned_data.get('class_mapping')
+            input_shape = cleaned_data.get('input_shape')
+            model_name = cleaned_data.get('model_name')
+            
+            if not model_file:
+                self.add_error('model_file', 'Model file is required when uploading a custom model.')
+            
+            if not class_mapping:
+                self.add_error('class_mapping', 'Class mapping is required when uploading a custom model.')
+            else:
+                # Validate JSON
+                try:
+                    json.loads(class_mapping)
+                except json.JSONDecodeError:
+                    self.add_error('class_mapping', 'Class mapping must be valid JSON.')
+            
+            if not input_shape:
+                self.add_error('input_shape', 'Input shape is required when uploading a custom model.')
+            else:
+                # Validate JSON
+                try:
+                    json.loads(input_shape)
+                except json.JSONDecodeError:
+                    self.add_error('input_shape', 'Input shape must be valid JSON.')
+            
+            if not model_name:
+                self.add_error('model_name', 'Model name is required when uploading a custom model.')
+        
         return cleaned_data
 
 
