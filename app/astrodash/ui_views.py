@@ -1,8 +1,10 @@
 from django.shortcuts import render
 from django.contrib import messages
 from django.conf import settings
-from django.http import HttpResponseRedirect
+from django.http import HttpResponseRedirect, FileResponse, Http404
+from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.urls import reverse
+from pathlib import Path
 
 from astrodash.forms import ClassifyForm, BatchForm, ModelSelectionForm
 from astrodash.services import get_spectrum_processing_service, get_classification_service, get_spectrum_service, get_model_service
@@ -19,10 +21,31 @@ def landing_page(request):
     """
     return render(request, 'astrodash/index.html')
 
+
+@xframe_options_sameorigin
+def dash_twins(request):
+    """
+    Serves the DASH Twins Explorer static HTML (embedding visualization).
+    File lives under the astrodash app: astrodash/explorer/dash_twinsfromspace.html
+    """
+    path = Path(settings.BASE_DIR) / "astrodash" / "explorer" / "dash_twinsfromspace.html"
+    if not path.is_file():
+        raise Http404("DASH Twins Explorer file not found.")
+    return FileResponse(
+        open(path, "rb"),
+        content_type="text/html",
+        as_attachment=False,
+    )
+
+
 def model_selection(request):
     """
     Handles model selection page - allows choosing between dash/transformer or uploading a custom model.
     """
+    # Clear messages carried over from other pages (e.g. classify/batch processing errors)
+    # so the model selection page doesn't show unrelated errors.
+    list(messages.get_messages(request))
+
     action_type = request.GET.get('action', 'classify')  # 'classify' or 'batch'
     form = ModelSelectionForm(request.POST or None, request.FILES or None)
     
@@ -93,7 +116,9 @@ def classify(request):
     form = ClassifyForm(request.POST or None, request.FILES or None)
     # Set the model from session
     form.fields['model'].initial = selected_model_type if selected_model_type != 'user_uploaded' else 'transformer'
-    context = {'form': form}
+    context = {
+        'form': form,
+    }
     
     if request.method == 'POST':
         if form.is_valid():
