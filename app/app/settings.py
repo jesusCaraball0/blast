@@ -293,21 +293,63 @@ ALLOW_LOGOUT_GET_METHOD = True
 USE_X_FORWARDED_HOST = True
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
-# logging for mozilla oidc
+# logging for mozilla oidc + astrodash
+ASTRODASH_LOG_DIR = os.environ.get("ASTRODASH_LOG_DIR", "").strip()
+ASTRODASH_LOG_LEVEL = os.environ.get("ASTRODASH_LOG_LEVEL", "INFO").strip().upper()
+ASTRODASH_LOG_FILE = os.path.join(ASTRODASH_LOG_DIR, "app.log") if ASTRODASH_LOG_DIR else None
+
+if ASTRODASH_LOG_DIR:
+    os.makedirs(ASTRODASH_LOG_DIR, exist_ok=True)
+
 LOGGING = {
     'version': 1,
     "disable_existing_loggers": False,
+    "formatters": {
+        "default": {
+            "format": "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+            "datefmt": "%Y-%m-%d %H:%M:%S",
+        },
+    },
     "handlers": {
         "console": {
             "class": "logging.StreamHandler",
+            "formatter": "default",
         },
+        **(
+            {
+                "astrodash_file": {
+                    "class": "logging.handlers.RotatingFileHandler",
+                    "formatter": "default",
+                    "filename": ASTRODASH_LOG_FILE,
+                    "maxBytes": 10 * 1024 * 1024,  # 10MB
+                    "backupCount": 5,
+                },
+            }
+            if ASTRODASH_LOG_FILE
+            else {}
+        ),
     },
     'loggers': {
         'mozilla_django_oidc': {
-            'handlers': ['console'],
-            'level': 'INFO'
+            'handlers': [],
+            'level': 'CRITICAL',
+            'propagate': False,
         },
-    }
+        "astrodash": {
+            "handlers": ["console", *(["astrodash_file"] if ASTRODASH_LOG_FILE else [])],
+            "level": ASTRODASH_LOG_LEVEL,
+            "propagate": False,
+        },
+        "django": {
+            "handlers": [],
+            "level": "CRITICAL",
+            "propagate": False,
+        },
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": ASTRODASH_LOG_LEVEL,
+    },
 }
 
 SILKY_PYTHON_PROFILER = (os.environ.get("SILKY_PYTHON_PROFILER", "false").lower() == "true")

@@ -42,6 +42,9 @@ services:
       - django-static:/app/static
       - ./dustmapsrc:/tmp/.dustmapsrc:ro
       - astrodash-data:/mnt/astrodash-data
+      - ../astrodash-logs:/logs
+    environment:
+      - ASTRODASH_LOG_DIR=/logs
     profiles:
       - "full_prod"
       - "slim_prod"

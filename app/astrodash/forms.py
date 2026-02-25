@@ -13,7 +13,7 @@ class ClassifyForm(forms.Form):
     file = forms.FileField(
         label="Upload Spectrum",
         required=False,
-        validators=[FileExtensionValidator(allowed_extensions=['txt', 'dat', 'ascii', 'csv'])],
+        validators=[FileExtensionValidator(allowed_extensions=['txt', 'dat', 'ascii', 'csv', 'lnw', 'fits', 'flm'])],
         help_text="Upload a spectrum file (text format, two columns: wavelength and flux)"
     )
     
