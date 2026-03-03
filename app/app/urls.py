@@ -19,12 +19,12 @@ from django.urls import path
 
 urlpatterns = [
     path("admin/", admin.site.urls, name='admin'),
-    path("", include("host.urls")),
     path("api/", include("api.urls")),
     path("astrodash/api/v1/", include("astrodash.api_urls")),
     path("astrodash/", include("astrodash.urls")),
+    path("oidc/", include("mozilla_django_oidc.urls")),
+    path("", include("host.urls")),
     path("", include("users.urls")),
-    path("oidc/", include("mozilla_django_oidc.urls"))
 ]
 
 handler403 = "host.views.error_view"

@@ -248,6 +248,7 @@
 {% if success %}
 {{ overlay_elements|json_script:"initial-overlay-elements" }}
 {{ overlay_templates|json_script:"initial-overlay-templates" }}
+{{ available_elements|json_script:"available-elements" }}
 <script>
 (function() {
     var plotConfig = {
@@ -280,13 +281,25 @@
     }
 
     document.addEventListener("DOMContentLoaded", function() {
-        var apiBase = plotConfig.apiBase;
-        if (!apiBase) return;
+        var apiBase = plotConfig.apiBase || "";
+        if (apiBase.indexOf("/") !== 0) apiBase = "/" + apiBase;
 
-        fetch(apiBase + "/line-list/elements").then(function(r) { return r.json(); }).then(function(data) {
-            var container = document.getElementById("element-buttons");
+        var customizeBtn = document.getElementById("customize-plot-btn");
+        var modalEl = document.getElementById("customize-plot-modal");
+        if (customizeBtn && modalEl) {
+            customizeBtn.addEventListener("click", function() {
+                $("#customize-plot-modal").modal("show");
+            });
+        }
+
+        var container = document.getElementById("element-buttons");
+        var elementsList = [];
+        var elScript = document.getElementById("available-elements");
+        if (elScript) try { elementsList = JSON.parse(elScript.textContent); } catch (e) {}
+        if (!Array.isArray(elementsList)) elementsList = [];
+        if (container) {
             container.innerHTML = "";
-            (data.elements || []).forEach(function(el) {
+            elementsList.forEach(function(el) {
                 var btn = document.createElement("button");
                 btn.type = "button";
                 btn.className = "btn btn-sm element-btn " + (selectedElements.has(el) ? "btn-primary" : "btn-outline-secondary");
@@ -305,9 +318,10 @@
                 };
                 container.appendChild(btn);
             });
-        }).catch(function() {
-            document.getElementById("element-buttons").innerHTML = "<span class=\"text-muted small\">Failed to load elements.</span>";
-        });
+        }
+        if (container && elementsList.length === 0) {
+            container.innerHTML = "<span class=\"text-muted small\">No element list available. Check line list file path.</span>";
+        }
 
         if (document.querySelectorAll(".template-btn").length) {
             document.querySelectorAll(".template-btn").forEach(function(btn) {
@@ -417,12 +431,8 @@
             });
         }
 
-        document.getElementById("apply-overlays-btn").addEventListener("click", function() {
-            applyOverlays();
-        });
-        document.getElementById("customize-plot-btn").addEventListener("click", function() {
-            $("#customize-plot-modal").modal("show");
-        });
+        var applyBtn = document.getElementById("apply-overlays-btn");
+        if (applyBtn) applyBtn.addEventListener("click", function() { applyOverlays(); });
     });
 })();
 </script>

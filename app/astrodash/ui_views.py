@@ -338,9 +338,12 @@ def classify(request):
                     wave_min=plot_wave_min,
                     wave_max=plot_wave_max,
                 )
-                plot_api_base = request.build_absolute_uri(
-                    reverse('astrodash_api:line_list_elements')
-                ).rsplit('/', 1)[0]
+                # API base for plot customization (relative path so fetch is same-origin)
+                plot_api_base = reverse('astrodash_api:line_list_elements').rsplit('/', 1)[0]
+                try:
+                    available_elements = get_line_list_service().get_available_elements()
+                except Exception:
+                    available_elements = []
                 context.update({
                     'results': formatted_results,
                     'plot_script': plot_script,
@@ -353,6 +356,7 @@ def classify(request):
                     'plot_api_base': plot_api_base,
                     'overlay_elements': overlay_elements_get,
                     'overlay_templates': overlay_templates_get,
+                    'available_elements': available_elements,
                 })
                 return render(request, 'astrodash/classify.html', context)
             # Fall through to normal render if no overlays or restore failed
@@ -472,10 +476,12 @@ def classify(request):
                     wave_max=plot_wave_max,
                 )
 
-                # API base for plot customization (element lines, template spectra)
-                plot_api_base = request.build_absolute_uri(
-                    reverse('astrodash_api:line_list_elements')
-                ).rsplit('/', 1)[0]
+                # API base for plot customization (relative path so fetch is same-origin)
+                plot_api_base = reverse('astrodash_api:line_list_elements').rsplit('/', 1)[0]
+                try:
+                    available_elements = get_line_list_service().get_available_elements()
+                except Exception:
+                    available_elements = []
 
                 context.update({
                     'results': formatted_results,
@@ -489,6 +495,7 @@ def classify(request):
                     'plot_api_base': plot_api_base,
                     'overlay_elements': overlay_elements,
                     'overlay_templates': overlay_templates,
+                    'available_elements': available_elements,
                 })
                 
             except AppException as e:
@@ -671,7 +678,8 @@ def _create_bokeh_plot(spectrum, element_lines=None, template_spectra=None, wave
         y_axis_label='Flux',
         height=400,
         sizing_mode="stretch_width",
-        tools="pan,box_zoom,reset,save"
+        tools="pan,box_zoom,reset,save",
+        x_range=(wave_min, wave_max) if (wave_min is not None and wave_max is not None) else None,
     )
 
     p.line('x', 'y', source=source, line_width=2, color="#1976d2", legend_label="Observed")
@@ -684,7 +692,7 @@ def _create_bokeh_plot(spectrum, element_lines=None, template_spectra=None, wave
         mode='vline'
     ))
 
-    # Element/ion lines: vertical spans at each wavelength in range
+    # Element/ion lines: vertical spans at each wavelength in range; each element gets a distinct color
     if element_lines and wave_min is not None and wave_max is not None:
         for idx, (element_name, wavelengths) in enumerate(element_lines):
             color = _PLOT_OVERLAY_COLORS[idx % len(_PLOT_OVERLAY_COLORS)]
@@ -692,6 +700,11 @@ def _create_bokeh_plot(spectrum, element_lines=None, template_spectra=None, wave
                 if wave_min <= wl <= wave_max:
                     span = Span(location=wl, dimension="height", line_color=color, line_dash="4 4", line_width=1)
                     p.add_layout(span)
+            # Legend entry: line outside plot range so legend shows color and label
+            out_x = wave_min - (wave_max - wave_min)
+            legend_cds = ColumnDataSource(data=dict(x=[out_x, out_x], y=[0, 0]))
+            p.line("x", "y", source=legend_cds, line_color=color, line_dash="4 4", line_width=2,
+                   legend_label=f"{element_name} (line)")
 
     # Template spectra: extra lines
     if template_spectra:
@@ -707,6 +720,10 @@ def _create_bokeh_plot(spectrum, element_lines=None, template_spectra=None, wave
                 tx, ty = list(tx), list(ty)
             color = _PLOT_OVERLAY_COLORS[idx % len(_PLOT_OVERLAY_COLORS)]
             p.line(tx, ty, line_width=2, color=color, legend_label=label)
+
+    p.legend.location = "bottom_center"
+    p.legend.orientation = "horizontal"
+    p.legend.click_policy = "hide"
 
     p.background_fill_color = "#f5f5f5"
     p.border_fill_color = "#ffffff"
