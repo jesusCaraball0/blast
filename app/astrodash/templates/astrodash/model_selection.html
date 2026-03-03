@@ -55,7 +55,7 @@
                 <!-- Model Selection Cards -->
                 <div class="row mb-4">
                     <!-- Transformer Model Card -->
-                    <div class="col-md-4 mb-4">
+                    <div class="col-lg-3 col-md-6 mb-4">
                         <div class="card shadow-sm h-100 model-card" 
                              data-model-type="transformer"
                              style="cursor: pointer; border: 2px solid transparent; transition: all 0.3s ease;"
@@ -79,7 +79,7 @@
                     </div>
 
                     <!-- Dash Model Card -->
-                    <div class="col-md-4 mb-4">
+                    <div class="col-lg-3 col-md-6 mb-4">
                         <div class="card shadow-sm h-100 model-card" 
                              data-model-type="dash"
                              style="cursor: pointer; border: 2px solid transparent; transition: all 0.3s ease;"
@@ -112,8 +112,31 @@
                         </div>
                     </div>
 
+                    <!-- Existing Uploaded Models Card -->
+                    <div class="col-lg-3 col-md-6 mb-4">
+                        <div class="card shadow-sm h-100 model-card"
+                             data-model-type="user_model"
+                             style="cursor: pointer; border: 2px solid transparent; transition: all 0.3s ease;"
+                             onmouseover="this.style.borderColor='#6f42c1'; this.style.boxShadow='0 4px 8px rgba(111,66,193,0.3)'"
+                             onmouseout="if(!this.classList.contains('selected')) this.style.borderColor='transparent'; this.style.boxShadow=''"
+                             onclick="selectModel('user_model')">
+                            <div class="card-body">
+                                <div class="text-center mb-3" style="color: #6f42c1;">
+                                    <i class="bi bi-collection" style="font-size: 2rem;"></i>
+                                </div>
+                                <h4 class="card-title text-center mb-3">User Uploaded Models</h4>
+                                <p class="card-text text-center text-muted mb-2">
+                                    Pick from existing user-uploaded models
+                                </p>
+                                <p class="card-text text-center text-muted small mb-0">
+                                    Available: {{ existing_models_count|default:"0" }}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Upload Model Card -->
-                    <div class="col-md-4 mb-4">
+                    <div class="col-lg-3 col-md-6 mb-4">
                         <div class="card shadow-sm h-100 model-card" 
                              data-model-type="upload"
                              style="cursor: pointer; border: 2px solid transparent; transition: all 0.3s ease;"
@@ -133,8 +156,26 @@
                     </div>
                 </div>
 
-                <!-- Upload Model Section (Form Fields) -->
-                <div class="card shadow-sm mb-4" id="uploadSection" style="display: none;">
+                <!-- Existing Models Section -->
+                <div class="card shadow-sm mb-4" id="existingModelsSection" style="display: none;">
+                    <div class="card-body">
+                        <div class="form-group">
+                            {{ form.existing_model_id|as_crispy_field }}
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center mt-4">
+                            <a href="{% url 'astrodash:landing_page' %}" class="btn btn-outline-secondary">
+                                CANCEL
+                            </a>
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                Use selected model
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Upload Model Section (Form Fields). Shown when show_upload_section is set (e.g. validation errors or after error). -->
+                <div class="card shadow-sm mb-4" id="uploadSection" style="display: {% if show_upload_section|default:False %}block{% else %}none{% endif %};">
                     <div class="card-body">
 
                         <div class="form-group">
@@ -204,6 +245,10 @@
         border-color: #007bff !important;
         box-shadow: 0 4px 12px rgba(0,123,255,0.4) !important;
     }
+    .model-card.selected[data-model-type="user_model"] {
+        border-color: #6f42c1 !important;
+        box-shadow: 0 4px 12px rgba(111,66,193,0.35) !important;
+    }
     .gap-2 > * {
         margin: 0.25rem;
     }
@@ -239,31 +284,54 @@
 
         // Show/hide upload section
         const uploadSection = document.getElementById('uploadSection');
+        const existingModelsSection = document.getElementById('existingModelsSection');
         
         if (modelType === 'upload') {
             uploadSection.style.display = 'block';
+            if (existingModelsSection) existingModelsSection.style.display = 'none';
             // Make upload fields required
             const modelFileInput = document.querySelector('input[name="{{ form.model_file.name }}"]');
             const modelNameInput = document.querySelector('input[name="{{ form.model_name.name }}"]');
             const classMappingInput = document.querySelector('textarea[name="{{ form.class_mapping.name }}"]');
             const inputShapeInput = document.querySelector('input[name="{{ form.input_shape.name }}"]');
+            const existingModelSelect = document.querySelector('select[name="{{ form.existing_model_id.name }}"]');
             
             if (modelFileInput) modelFileInput.required = true;
             if (modelNameInput) modelNameInput.required = true;
             if (classMappingInput) classMappingInput.required = true;
             if (inputShapeInput) inputShapeInput.required = true;
+            if (existingModelSelect) existingModelSelect.required = false;
+        } else if (modelType === 'user_model') {
+            uploadSection.style.display = 'none';
+            if (existingModelsSection) existingModelsSection.style.display = 'block';
+
+            // Only require the dropdown selection, not upload fields
+            const modelFileInput = document.querySelector('input[name="{{ form.model_file.name }}"]');
+            const modelNameInput = document.querySelector('input[name="{{ form.model_name.name }}"]');
+            const classMappingInput = document.querySelector('textarea[name="{{ form.class_mapping.name }}"]');
+            const inputShapeInput = document.querySelector('input[name="{{ form.input_shape.name }}"]');
+            const existingModelSelect = document.querySelector('select[name="{{ form.existing_model_id.name }}"]');
+
+            if (modelFileInput) modelFileInput.required = false;
+            if (modelNameInput) modelNameInput.required = false;
+            if (classMappingInput) classMappingInput.required = false;
+            if (inputShapeInput) inputShapeInput.required = false;
+            if (existingModelSelect) existingModelSelect.required = true;
         } else {
             uploadSection.style.display = 'none';
+            if (existingModelsSection) existingModelsSection.style.display = 'none';
             // Remove required from upload fields
             const modelFileInput = document.querySelector('input[name="{{ form.model_file.name }}"]');
             const modelNameInput = document.querySelector('input[name="{{ form.model_name.name }}"]');
             const classMappingInput = document.querySelector('textarea[name="{{ form.class_mapping.name }}"]');
             const inputShapeInput = document.querySelector('input[name="{{ form.input_shape.name }}"]');
+            const existingModelSelect = document.querySelector('select[name="{{ form.existing_model_id.name }}"]');
             
             if (modelFileInput) modelFileInput.required = false;
             if (modelNameInput) modelNameInput.required = false;
             if (classMappingInput) classMappingInput.required = false;
             if (inputShapeInput) inputShapeInput.required = false;
+            if (existingModelSelect) existingModelSelect.required = false;
             
             // Automatically submit form for transformer or dash
             document.getElementById('modelSelectionForm').submit();
@@ -279,10 +347,11 @@
         }
     }
 
-    // Set default selection to dash on page load
+    // On load: if server asked to show upload section (e.g. validation errors), select upload card so errors are visible
     document.addEventListener('DOMContentLoaded', function() {
-        // Don't auto-select on page load - let user choose
-        // This prevents automatic redirect when page loads
+        if ({{ show_upload_section|default:False|yesno:"true,false" }}) {
+            selectModel('upload');
+        }
     });
 </script>
 {% endblock %}
